@@ -1,0 +1,33 @@
+{
+  "cola.xlsx": {
+    "original_path": "cola.xlsx",
+    "processed_path": "processed_excel/raw_cola.xlsx",
+    "schema": {
+      "Sheet1": {
+        "columns": [
+          "日期",
+          "城市",
+          "产品系列",
+          "销售渠道",
+          "销售数量",
+          "单价",
+          "总销售额",
+          "折扣",
+          "净销售额",
+          "销售代表"
+        ],
+        "dtypes": {
+          "日期": "datetime64[ns]",
+          "城市": "object",
+          "产品系列": "object",
+          "销售渠道": "object",
+          "销售数量": "int64",
+          "单价": "float64",
+          "总销售额": "float64",
+          "折扣": "float64",
+          "净销售额": "float64",
+          "销售代表": "object"
+        },
+        "head_sample": [
+          {
+            "日期": 

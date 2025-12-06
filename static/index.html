@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Agent - Data Analysis Assistant</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: radial-gradient(circle at top left, #1f2933 0%, #050608 40%, #000000 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #e5e7eb;
+            /* 防止滚动条导致布局偏移 */
+            scrollbar-gutter: stable;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: linear-gradient(145deg, rgba(15,23,42,0.96), rgba(3,7,18,0.98));
+            border-radius: 16px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            /* 确保容器宽度稳定 */
+            box-sizing: border-box;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #020617 0%, #020617 60%, #020617 100%);
+            color: #f9fafb;
+            padding: 30px;
+            text-align: center;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        }
+        
+        .header h1 {
+            font-size: 2.4em;
+            margin-bottom: 10px;
+            letter-spacing: 0.05em;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.05em;
+            color: #9ca3af;
+        }
+        
+        .features-section {
+            background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(3,7,18,0.98));
+            padding: 20px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+        }
+        
+        .features-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-align: center;
+            color: #e5e7eb;
+            letter-spacing: 0.03em;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .feature-card {
+            background: linear-gradient(145deg, rgba(30,41,59,0.8), rgba(15,23,42,0.9));
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            padding: 10px 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59,130,246,0.2);
+            border-color: rgba(59,130,246,0.4);
+        }
+        
+        .feature-icon {
+            font-size: 1.6em;
+            margin-bottom: 4px;
+            display: block;
+        }
+        
+        .feature-title {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+        
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1.4fr 1.6fr;
+            gap: 20px;
+            /* 防止整体布局因滚动条变化 */
+            overflow: hidden;
+        }
+        
+        .left-panel {
+            border-right: 1px solid rgba(55, 65, 81, 0.8);
+            padding: 24px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.95), rgba(15,23,42,0.85));
+            /* 防止滚动条影响布局 */
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+            /* 确保宽度稳定 */
+            box-sizing: border-box;
+            min-width: 0; /* 防止 flex 子元素溢出 */
+        }
+        
+        /* 自定义左侧面板滚动条样式 */
+        .left-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .left-panel::-webkit-scrollbar-track {
+            background: rgba(15,23,42,0.5);
+            border-radius: 4px;
+        }
+        
+        .left-panel::-webkit-scrollbar-thumb {
+            background: rgba(148,163,184,0.5);
+            border-radius: 4px;
+        }
+        
+        .left-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(148,163,184,0.7);
+        }
+        
+        .right-panel {
+            padding: 24px;
+            background: radial-gradient(circle at top right, rgba(3,7,18,0.95), rgba(15,23,42,0.9));
+            /* 防止滚动条影响布局 */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            /* 确保宽度稳定，不受滚动条影响 */
+            box-sizing: border-box;
+            min-width: 0; /* 防止 flex 子元素溢出 */
+        }
+        
+        .input-section {
+            margin-bottom: 24px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 15px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            background: rgba(15,23,42,0.9);
+            color: #e5e7eb;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px rgba(59,130,246,0.6);
+        }
+        
+        /* Natural language query textarea */
+        .query-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            line-height: 1.6;
+            background: rgba(15,23,42,0.9);
+            color: #e5e7eb;
+        }
+        
+        .query-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px rgba(59,130,246,0.6);
+        }
+        
+        /* Voice input section */
+        .voice-section {
+            margin-top: 24px;
+            padding: 20px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.98), rgba(3,7,18,0.98));
+            border-radius: 16px;
+            border: 1px solid rgba(55,65,81,0.9);
+            box-shadow: 0 18px 45px rgba(0,0,0,0.7);
+        }
+        
+        .voice-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .btn-start-recording {
+        /* Use the same tech-blue gradient style as primary buttons */
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            color: #f9fafb;
+            flex: 1;
+            box-shadow: 0 12px 30px rgba(37,99,235,0.5);
+        }
+        
+        .btn-start-recording:hover {
+            background: linear-gradient(135deg, #1d4ed8, #4338ca);
+        }
+        
+        .btn-stop-recording {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            color: #e5e7eb;
+            flex: 1;
+        }
+        
+        .btn-stop-recording:hover {
+            background: linear-gradient(135deg, #4b5563, #374151);
+        }
+
+        .btn-stop-recording:disabled {
+            background: linear-gradient(135deg, #4b5563, #374151);
+            opacity: 0.7;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .btn-stop-recording:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        /* Transcription display area */
+        .transcription-display {
+            min-height: 120px;
+            max-height: 300px;
+            padding: 15px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+        
+        .transcription-item {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f0f7ff;
+            border-left: 3px solid #667eea;
+            border-radius: 4px;
+        }
+        
+        .transcription-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .transcription-time {
+            font-weight: 600;
+        }
+        
+        .transcription-lang {
+            padding: 2px 6px;
+            background: #667eea;
+            color: white;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        .transcription-text {
+            color: #2c3e50;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .transcription-empty {
+            color: #95a5a6;
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            color: #f9fafb;
+            box-shadow: 0 10px 25px rgba(37,99,235,0.4);
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #1d4ed8, #4338ca);
+            transform: translateY(-2px);
+            box-shadow: 0 14px 30px rgba(59,130,246,0.55);
+        }
+        
+        .btn-voice {
+            background: linear-gradient(135deg, #10b981, #22c55e);
+            color: #0b1120;
+            box-shadow: 0 10px 25px rgba(16,185,129,0.4);
+        }
+        
+        .btn-voice:hover {
+            background: linear-gradient(135deg, #059669, #16a34a);
+        }
+        
+        .btn-voice.recording {
+            background: #e74c3c;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .voice-status {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .results-section {
+            max-height: 900px;
+            overflow-y: auto;
+            /* 防止滚动条导致布局偏移 */
+            scrollbar-gutter: stable;
+            /* 自定义滚动条样式，避免占用额外空间 */
+            scrollbar-width: thin;
+            /* 确保宽度稳定 */
+            width: 100%;
+            box-sizing: border-box;
+            flex: 1;
+            min-height: 0; /* 允许 flex 子元素收缩 */
+        }
+        
+        /* WebKit 浏览器滚动条样式 */
+        .results-section::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .results-section::-webkit-scrollbar-track {
+            background: rgba(15,23,42,0.5);
+            border-radius: 4px;
+        }
+        
+        .results-section::-webkit-scrollbar-thumb {
+            background: rgba(148,163,184,0.5);
+            border-radius: 4px;
+        }
+        
+        .results-section::-webkit-scrollbar-thumb:hover {
+            background: rgba(148,163,184,0.7);
+        }
+        
+        .result-item {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.96), rgba(15,23,42,0.88));
+            border-radius: 12px;
+            border-left: 4px solid #3b82f6;
+            box-shadow: 0 18px 45px rgba(0,0,0,0.6);
+        }
+        
+        .result-item h3 {
+            color: #bfdbfe;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        
+        .data-block {
+            background: rgba(15,23,42,0.9);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            margin: 10px 0;
+            color: #e5e7eb;
+        }
+        
+        .result-text {
+            line-height: 1.8;
+            color: #e5e7eb;
+            white-space: normal;
+            word-wrap: break-word;
+            text-align: justify;
+        }
+        
+        /* Chart display area */
+        .chart-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
+            border-radius: 12px;
+            border: 1px solid rgba(55,65,81,0.9);
+        }
+        
+        .chart-container h4 {
+            margin-bottom: 10px;
+            color: #bfdbfe;
+            font-size: 1.1em;
+        }
+        
+        .chart-iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 8px;
+            background: #020617;
+        }
+        
+        .chart-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .trace-info {
+            background: rgba(15,23,42,0.92);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid rgba(55,65,81,0.9);
+        }
+        
+        .trace-info h4 {
+            color: #bfdbfe;
+            margin-bottom: 10px;
+        }
+        
+        .trace-info ul {
+            margin-left: 20px;
+            color: #d1d5db;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #93c5fd;
+        }
+        
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        
+        .status-bar {
+            padding: 12px 24px;
+            background: radial-gradient(circle at bottom, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
+            border-top: 1px solid rgba(55,65,81,0.9);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4b5563;
+        }
+        
+        .status-dot.connected {
+            background: #27ae60;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            letter-spacing: 0.03em;
+        }
+
+        .file-upload {
+            margin-bottom: 24px;
+            padding: 16px 16px 12px;
+            border-radius: 12px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
+            border: 1px solid rgba(55,65,81,0.9);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+        }
+        
+        .file-upload input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.98), rgba(15,23,42,0.95));
+            color: #e5e7eb;
+            font-size: 15px;
+            cursor: pointer;
+            border: 1px dashed rgba(148,163,184,0.9);
+            width: 100%;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.65);
+        }
+        
+        .file-upload-label:hover {
+            background: radial-gradient(circle at top left, rgba(30,64,175,0.9), rgba(15,23,42,0.98));
+        }
+        
+        /* API Key 输入框样式 - 与文件上传框相同大小 */
+        .api-key-section {
+            margin-bottom: 24px;
+            padding: 16px 16px 12px;
+            border-radius: 12px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
+            border: 1px solid rgba(55,65,81,0.9);
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+        }
+        
+        .api-key-input {
+            width: 100%;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: radial-gradient(circle at top left, rgba(15,23,42,0.98), rgba(15,23,42,0.95));
+            color: #e5e7eb;
+            font-size: 15px;
+            font-family: monospace;
+            border: 1px dashed rgba(148,163,184,0.9);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.65);
+            transition: all 0.3s ease;
+        }
+        
+        .api-key-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: radial-gradient(circle at top left, rgba(30,64,175,0.9), rgba(15,23,42,0.98));
+            box-shadow: 0 12px 32px rgba(59,130,246,0.4);
+        }
+        
+        .api-key-input::placeholder {
+            color: #9ca3af;
+        }
+
+        .file-list {
+            max-height: 210px; /* about 3 file items (≈70px each) */
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-radius: 8px;
+            border: 1px solid rgba(55,65,81,0.9);
+            background: rgba(15,23,42,0.95);
+        /* Custom scrollbar */
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 #f7fafc;
+        }
+        
+        /* WebKit scrollbar style */
+        .file-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .file-list::-webkit-scrollbar-track {
+            background: #020617;
+            border-radius: 4px;
+        }
+        
+        .file-list::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        
+        .file-list::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        .file-item {
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(31,41,55,0.9);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #e5e7eb;
+        }
+
+        .file-item-summary {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+
+        .file-list-empty {
+            padding: 16px;
+            text-align: center;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .upload-status {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .upload-status.uploading {
+            color: #93c5fd;
+        }
+
+        .upload-status.processing {
+            color: #4ade80;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .btn-secondary:hover {
+            background: #dde4e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Excel Agent</h1>
+            <p>Natural language data analysis assistant - text & voice supported</p>
+        </div>
+        
+        <div class="features-section">
+            <div class="features-title">✨ Key Features</div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🧹</span>
+                    <div class="feature-title">Smart Data Cleaning</div>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🔍</span>
+                    <div class="feature-title">Intelligent File Matching</div>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📋</span>
+                    <div class="feature-title">Analysis Planning</div>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">💻</span>
+                    <div class="feature-title">Auto Code Generation</div>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📊</span>
+                    <div class="feature-title">Visual Charts</div>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🌐</span>
+                    <div class="feature-title">Multi-Language Support</div>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🎤</span>
+                    <div class="feature-title">Voice Input</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-layout">
+            <!-- Left panel: API key, file management, query, voice -->
+            <div class="left-panel">
+                <!-- API Key 输入框 - 放在第一个位置 -->
+                <div class="api-key-section">
+                    <div class="section-title">
+                        🔑 OpenAI API Key (Optional)
+                    </div>
+                    <input 
+                        type="password" 
+                        id="apiKeyInput" 
+                        class="api-key-input"
+                        placeholder=""
+                    />
+                </div>
+
+                <div class="file-upload">
+                    <div class="section-title">
+                        📁 File Management
+                    </div>
+                    <label class="file-upload-label">
+                        <span id="uploadLabelText">⬆️ Click or drop to upload Excel file</span>
+                        <input type="file" id="fileInput" accept=".xlsx,.xls" />
+                    </label>
+                    <div style="font-size: 12px; color: #9ca3af; margin-top: 6px;">
+                        Supports .xlsx / .xls. Uploaded files will be added to the knowledge base.
+                    </div>
+                    <div id="uploadStatus" class="upload-status">
+                        No active upload
+                    </div>
+
+                    <div style="margin-top: 14px; font-size: 13px; color: #e5e7eb; display:flex; justify-content: space-between; align-items:center;">
+                        <span>Indexed files</span>
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="refreshFileList()">Refresh</button>
+                    </div>
+                    <div class="file-list" id="fileList">
+                        <div class="file-list-empty">No files yet. Please upload an Excel file.</div>
+                    </div>
+                </div>
+
+                <div class="input-section">
+                    <div class="section-title">
+                        ✏️ Natural Language Query
+                    </div>
+                    <textarea 
+                        id="questionInput" 
+                        class="query-textarea" 
+                        placeholder="Ask your question, e.g. analyze yearly growth of public budget...&#10;You can describe your analysis needs in multiple lines."
+                    ></textarea>
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                        <button class="btn btn-primary" onclick="sendQuestion()">Run analysis</button>
+                    </div>
+                </div>
+                
+                <div class="voice-section">
+                    <div class="section-title">
+                        🎤 Voice Input
+                    </div>
+                    <div class="voice-controls">
+                        <button class="btn btn-start-recording" id="startRecordingBtn" onclick="startVoiceRecording()">
+                            🎙️ Start Recording
+                        </button>
+                        <button class="btn btn-stop-recording" id="stopRecordingBtn" onclick="stopVoiceRecording()" disabled>
+                            ⏹️ Stop Recording
+                        </button>
+                    </div>
+                    <div id="voiceStatus" class="voice-status" style="margin-top: 10px; margin-bottom: 10px; padding: 8px; background: rgba(15,23,42,0.8); border-radius: 4px; font-size: 12px; color: #9ca3af;">Status: Idle</div>
+                    <div class="transcription-display" id="transcriptionDisplay">
+                        <div class="transcription-empty">Click "Start Recording" to begin voice input</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right panel: analysis results -->
+            <div class="right-panel">
+                <div class="toolbar">
+                    <button class="btn btn-secondary" onclick="clearResults()">Clear Results</button>
+                    <button class="btn btn-primary" onclick="buildIndex()">Rebuild Index</button>
+                </div>
+                <!-- Loading indicator -->
+                <div class="loading" id="loadingIndicator" style="display: none;">Analyzing...</div>
+                <div class="results-section" id="resultsSection"></div>
+
+                <div class="status-bar">
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">Disconnected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Socket.IO with explicit transport configuration
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            upgrade: true,
+            rememberUpgrade: true
+        });
+        let isRecording = false;
+        let currentResult = null;
+        let currentLanguage = 'en'; // 当前分析使用的语言（'zh' 或 'en'）
+        
+        // 简单的语言检测函数
+        function detectLanguage(text) {
+            const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+            const totalChars = text.replace(/[^\w\u4e00-\u9fff]/g, '').length;
+            if (totalChars === 0) return 'en';
+            return chineseChars / totalChars > 0.3 ? 'zh' : 'en';
+        }
+        
+        // WebSocket connection status
+        socket.on('connect', () => {
+            console.log('[SOCKET_DEBUG] Connected to server');
+            document.getElementById('statusDot').classList.add('connected');
+            document.getElementById('statusText').textContent = 'Connected';
+        });
+        
+        socket.on('disconnect', (reason) => {
+            console.log('[SOCKET_DEBUG] Disconnected from server:', reason);
+            document.getElementById('statusDot').classList.remove('connected');
+            document.getElementById('statusText').textContent = 'Disconnected';
+        });
+        
+        socket.on('connect_error', (error) => {
+            console.error('[SOCKET_DEBUG] Connection error:', error);
+            document.getElementById('statusText').textContent = 'Connection Error';
+        });
+        
+        // Send question (via SSE)
+        function sendQuestion() {
+            const question = document.getElementById('questionInput').value.trim();
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+            
+            // 检测语言并重置（在发送请求之前）
+            currentLanguage = detectLanguage(question);
+            console.log('[LANG_DEBUG] Detected language from question:', currentLanguage);
+            
+            // Clear previous results area
+            document.getElementById('resultsSection').innerHTML = '';
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            // Create result container
+            currentResult = {
+                code: '',
+                data: '',
+                result: '',
+                trace: ''
+            };
+            
+            // 获取用户输入的 API key（可选）
+            const userApiKey = document.getElementById('apiKeyInput').value.trim();
+            
+            // Use EventSource to receive SSE stream
+            // 构建 URL，包含 API key（如果提供）
+            let url = `/api/analyze?question=${encodeURIComponent(question)}&chat_id=${Date.now()}`;
+            if (userApiKey) {
+                url += `&api_key=${encodeURIComponent(userApiKey)}`;
+            }
+            console.log('Send request:', url);
+            const eventSource = new EventSource(url);
+            
+            eventSource.onmessage = function(event) {
+                console.log('SSE message:', event.data);
+                try {
+                    const data = JSON.parse(event.data);
+                    handleStreamMessage(data);
+                } catch (e) {
+                    console.error('Failed to parse SSE data:', e, event.data);
+                }
+            };
+            
+            eventSource.onerror = function(error) {
+                console.error('SSE error:', error);
+                console.error('EventSource readyState:', eventSource.readyState);
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                    alert('Connection closed. Please check if the server is running.');
+                }
+            };
+            
+            // Save eventSource for later closing
+            window.currentEventSource = eventSource;
+        }
+
+        // Clear results
+        function clearResults() {
+            // Clear results section (includes all result items and charts)
+            document.getElementById('resultsSection').innerHTML = '';
+            document.getElementById('loadingIndicator').style.display = 'none';
+            currentResult = null;
+            if (window.currentEventSource) {
+                window.currentEventSource.close();
+                window.currentEventSource = null;
+            }
+
+            // Also ask backend to clear temporary chart files for this analysis
+            fetch('/api/clear_results', {
+                method: 'POST'
+            })
+                .then(res => res.json().catch(() => ({})))
+                .then(data => {
+                    if (data && data.status === 'success') {
+                        console.log('Clear results:', data.message);
+                    } else if (data && data.status === 'error') {
+                        console.warn('Failed to clear temporary files when clearing results:', data.message);
+                    }
+                })
+                .catch(err => {
+                    console.warn('Failed to call backend clear_results API:', err);
+                });
+        }
+        
+        // Handle streamed messages
+        function handleStreamMessage(data) {
+            console.log('Handle stream message:', data);
+            const { answer, finished, content_type, content_status } = data;
+            
+            // Handle text messages (status info)
+            if (content_type === 'text') {
+                // 如果还没有创建文本区域，先创建（使用当前检测到的语言）
+                if (!document.getElementById('result-text')) {
+                    const title = currentLanguage === 'zh' ? '分析过程' : 'Analysis process';
+                    addResultItem('text', title);
+                }
+                
+                // 如果收到消息，检测语言并更新标题（如果语言发生变化）
+                if (answer) {
+                    const detectedLang = detectLanguage(answer);
+                    if (detectedLang !== currentLanguage) {
+                        currentLanguage = detectedLang;
+                        // 更新标题
+                        const textItem = document.getElementById('result-text');
+                        if (textItem) {
+                            const titleElement = textItem.closest('.result-item')?.querySelector('h3');
+                            if (titleElement) {
+                                titleElement.textContent = currentLanguage === 'zh' ? '分析过程' : 'Analysis process';
+                            }
+                        }
+                    }
+                    appendToResult('text', answer + '\n');
+                }
+            }
+            
+            if (content_status === 'start') {
+                // 检测语言（从问题输入开始）
+                const questionInput = document.getElementById('questionInput');
+                if (questionInput && questionInput.value) {
+                    currentLanguage = detectLanguage(questionInput.value);
+                }
+                
+                // 根据语言显示标题
+                if (content_type === 'code') {
+                    const title = currentLanguage === 'zh' ? '生成的 Python 代码' : 'Generated Python code';
+                    addResultItem('code', title);
+                } else if (content_type === 'data') {
+                    const title = currentLanguage === 'zh' ? '执行输出' : 'Execution output';
+                    addResultItem('data', title);
+                } else if (content_type === 'result') {
+                    const title = currentLanguage === 'zh' ? '分析总结' : 'Analysis summary';
+                    addResultItem('result', title);
+                } else if (content_type === 'chart') {
+                    addResultItem('chart', '📊 Charts');
+                }
+            }
+            
+            if (answer && content_type !== 'text') {
+                if (content_type === 'chart') {
+                    // Handle chart data
+                    try {
+                        console.log('Chart data received:', answer);
+                        const chartData = JSON.parse(answer);
+                        console.log('Parsed chart data:', chartData);
+                        if (chartData.charts && chartData.charts.length > 0) {
+                            console.log('Ready to render charts:', chartData.charts);
+                            displayCharts(chartData.charts);
+                        } else {
+                            console.warn('Chart data is empty or invalid');
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse chart data:', e, answer);
+                    }
+                } else {
+                    appendToResult(content_type, answer);
+                }
+            }
+            
+            if (content_status === 'end') {
+                document.getElementById('loadingIndicator').style.display = 'none';
+            }
+            
+            if (finished === 1) {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                if (window.currentEventSource) {
+                    window.currentEventSource.close();
+                }
+            }
+        }
+        
+        // Add result section item
+        function addResultItem(type, title) {
+            const section = document.getElementById('resultsSection');
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.id = `result-${type}`;
+            item.innerHTML = `<h3>${title}</h3><div id="content-${type}"></div>`;
+            section.appendChild(item);
+        }
+        
+        // Append content to result section
+        function appendToResult(type, content) {
+            const contentDiv = document.getElementById(`content-${type}`);
+            if (!contentDiv) return;
+            
+            if (type === 'code') {
+                // Code content should be appended, not overwritten
+                const codeBlock = contentDiv.querySelector('.code-block');
+                if (codeBlock) {
+                    // If code block exists, append
+                    codeBlock.textContent = (codeBlock.textContent || '') + content;
+                } else {
+                    // Otherwise, create new block
+                    contentDiv.innerHTML = `<div class="code-block">${escapeHtml(content)}</div>`;
+                }
+            } else if (type === 'data') {
+                // Data output should also be appended
+                const dataBlock = contentDiv.querySelector('.data-block');
+                if (dataBlock) {
+                    dataBlock.textContent = (dataBlock.textContent || '') + content;
+                } else {
+                    contentDiv.innerHTML = `<div class="data-block">${escapeHtml(content)}</div>`;
+                }
+            } else if (type === 'result') {
+                // Analysis summary: accumulate raw text first, then format
+                let resultTextElement = contentDiv.querySelector('.result-text-raw');
+                if (!resultTextElement) {
+                    // Create a hidden element to store raw text
+                    resultTextElement = document.createElement('div');
+                    resultTextElement.className = 'result-text-raw';
+                    resultTextElement.style.display = 'none';
+                    contentDiv.appendChild(resultTextElement);
+                    
+                    // Create visible element for formatted text
+                    const formattedElement = document.createElement('div');
+                    formattedElement.className = 'result-text';
+                    formattedElement.id = 'result-text-formatted';
+                    contentDiv.appendChild(formattedElement);
+                }
+                
+                // Accumulate raw text
+                resultTextElement.textContent = (resultTextElement.textContent || '') + content;
+                
+                // Get accumulated raw text
+                const rawText = resultTextElement.textContent;
+                
+                // Check if result contains traceability info
+                let summaryText = rawText;
+                let traceText = '';
+                
+                // NOTE: backend uses Chinese markers in trace string; keep them for detection only
+                if (rawText.includes('本次分析使用了') && rawText.includes('工作表:')) {
+                    // Split summary text and traceability report
+                    const traceStartIndex = rawText.indexOf('本次分析使用了');
+                    if (traceStartIndex > 0) {
+                        summaryText = rawText.substring(0, traceStartIndex).trim();
+                        traceText = rawText.substring(traceStartIndex).trim();
+                    } else if (traceStartIndex === 0) {
+                        summaryText = '';
+                        traceText = rawText.trim();
+                    }
+                }
+                
+                // Format and render summary text
+                const formattedElement = document.getElementById('result-text-formatted');
+                if (formattedElement && summaryText) {
+                    // Escape HTML
+                    let formattedSummary = escapeHtml(summaryText);
+                    // Remove all line breaks first (they're likely from streaming chunks)
+                    formattedSummary = formattedSummary.replace(/\n/g, ' ');
+                    // Normalize whitespace: multiple spaces → single space
+                    formattedSummary = formattedSummary.replace(/[ \t]+/g, ' ');
+                    // Add paragraph breaks after sentence endings (。！？)
+                    formattedSummary = formattedSummary.replace(/([。！？])\s+/g, '$1<br><br>');
+                    // Clean up multiple <br> tags
+                    formattedSummary = formattedSummary.replace(/(<br>\s*){3,}/g, '<br><br>');
+                    formattedElement.innerHTML = formattedSummary;
+                }
+                
+                // Render traceability info separately
+                if (traceText) {
+                    let traceDiv = contentDiv.querySelector('.trace-info');
+                    if (!traceDiv) {
+                        traceDiv = document.createElement('div');
+                        traceDiv.className = 'trace-info';
+                        contentDiv.appendChild(traceDiv);
+                    }
+                    traceDiv.innerHTML = `<h4>📋 Data traceability</h4><div>${escapeHtml(traceText).replace(/\n/g, '<br>')}</div>`;
+                }
+            } else {
+                const current = contentDiv.innerHTML || '';
+                contentDiv.innerHTML = current + escapeHtml(content);
+            }
+        }
+        
+        // HTML escape helper
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Render charts
+        function displayCharts(chartFiles) {
+            console.log('displayCharts called with:', chartFiles);
+            const contentDiv = document.getElementById('content-chart');
+            if (!contentDiv) {
+                console.error('Element content-chart not found');
+                return;
+            }
+            
+            console.log('Found content-chart element:', contentDiv);
+            const chartList = document.createElement('div');
+            chartList.className = 'chart-list';
+            
+            chartFiles.forEach((chartFile, index) => {
+                console.log(`Render chart file ${index + 1}:`, chartFile);
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'chart-container';
+                
+                // Extract file name (without path)
+                const fileName = chartFile.split('/').pop().replace('.html', '');
+                // URL-encode file name (supports non-ASCII chars)
+                const encodedFileName = encodeURIComponent(chartFile.split('/').pop());
+                const chartUrl = `/charts/${encodedFileName}`;
+                console.log(`Chart file: ${fileName}, encoded: ${encodedFileName}, URL: ${chartUrl}`);
+                
+                chartContainer.innerHTML = `
+                    <h4>📊 ${fileName}</h4>
+                    <iframe src="${chartUrl}" class="chart-iframe" 
+                            title="${fileName}"></iframe>
+                `;
+                
+                chartList.appendChild(chartContainer);
+            });
+            
+            contentDiv.innerHTML = '';
+            contentDiv.appendChild(chartList);
+            console.log('Charts rendered.');
+        }
+        
+        // Voice recording variables
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let transcriptionItems = [];
+        
+        // Voice status display helper
+        function setVoiceStatus(text) {
+            const el = document.getElementById('voiceStatus');
+            if (el) {
+                el.textContent = 'Status: ' + text;
+                console.log('[VOICE_STATUS]', text);
+            }
+        }
+        
+        // Convert AudioBuffer to WAV Blob
+        function audioBufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1; // PCM
+            const bitDepth = 16;
+            
+            const bytesPerSample = bitDepth / 8;
+            const blockAlign = numChannels * bytesPerSample;
+            
+            const length = buffer.length * numChannels * bytesPerSample;
+            const arrayBuffer = new ArrayBuffer(44 + length);
+            const view = new DataView(arrayBuffer);
+            
+            // WAV file header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + length, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * blockAlign, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(36, 'data');
+            view.setUint32(40, length, true);
+            
+            // Convert audio samples
+            let offset = 44;
+            for (let i = 0; i < buffer.length; i++) {
+                for (let channel = 0; channel < numChannels; channel++) {
+                    const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+                    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    offset += 2;
+                }
+            }
+            
+            return new Blob([arrayBuffer], { type: 'audio/wav' });
+        }
+        
+        // Start recording
+        function startVoiceRecording() {
+            if (isRecording) {
+                console.log('[VOICE_DEBUG] Already recording, ignoring');
+                return;
+            }
+            console.log('[VOICE_DEBUG] startVoiceRecording() called');
+            setVoiceStatus('Requesting microphone permission...');
+            
+            // Request microphone permission
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    console.log('[VOICE_DEBUG] Microphone permission granted');
+                    isRecording = true;
+                    audioChunks = [];
+                    setVoiceStatus('Recording...');
+                    
+                    // Create MediaRecorder
+                    mediaRecorder = new MediaRecorder(stream);
+                    console.log('[VOICE_DEBUG] MediaRecorder created, state:', mediaRecorder.state);
+                    
+                    mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+                    
+                    mediaRecorder.onstop = async () => {
+                        console.log('[VOICE_DEBUG] MediaRecorder stopped, chunks:', audioChunks.length);
+                        // Stop all audio tracks
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        // Merge recorded chunks into Blob (MediaRecorder default: WebM)
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        console.log('[VOICE_DEBUG] Audio blob created, size:', audioBlob.size, 'bytes');
+                        setVoiceStatus('Encoding audio (' + Math.round(audioBlob.size / 1024) + ' KB)...');
+                        
+                        // Convert to WAV via Web Audio API
+                        try {
+                            const arrayBuffer = await audioBlob.arrayBuffer();
+                            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                            
+                            // To WAV
+                            const wavBlob = audioBufferToWav(audioBuffer);
+                            
+                            // To base64 and send to server
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64Audio = reader.result.split(',')[1];
+                                console.log('[VOICE_DEBUG] WAV converted to base64, length:', base64Audio.length);
+                                console.log('[VOICE_DEBUG] Emitting voice_input event to server...');
+                                setVoiceStatus('Sending audio to server (' + Math.round(base64Audio.length / 1024) + ' KB)...');
+                                socket.emit('voice_input', {
+                                    audio_data: base64Audio,
+                                    session_id: 'default',
+                                    audio_format: 'wav'
+                                });
+                                console.log('[VOICE_DEBUG] voice_input event emitted, waiting for server response...');
+                            };
+                            reader.readAsDataURL(wavBlob);
+                        } catch (err) {
+                            console.error('[VOICE_DEBUG] Audio conversion failed:', err);
+                            setVoiceStatus('WAV conversion failed, sending WebM...');
+                            // If conversion fails, send original WebM (backend must support it)
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64Audio = reader.result.split(',')[1];
+                                console.log('[VOICE_DEBUG] Sending WebM base64, length:', base64Audio.length);
+                                setVoiceStatus('Sending WebM audio to server...');
+                                socket.emit('voice_input', {
+                                    audio_data: base64Audio,
+                                    audio_format: 'webm',
+                                    session_id: 'default'
+                                });
+                            };
+                            reader.readAsDataURL(audioBlob);
+                        }
+                    };
+                    
+                    // Start recording
+                    mediaRecorder.start();
+                    
+                    // Update UI
+                    document.getElementById('startRecordingBtn').disabled = true;
+                    document.getElementById('stopRecordingBtn').disabled = false;
+                    
+                    // Add system hint
+                    addTranscriptionItem('System', 'en', 'Recording...', true);
+                })
+                .catch(err => {
+                    console.error('[VOICE_DEBUG] Cannot access microphone:', err);
+                    setVoiceStatus('Error: ' + err.message);
+                    alert('Cannot access microphone. Please check permission settings.\n\nError: ' + err.message);
+                });
+        }
+        
+        // Stop recording
+        function stopVoiceRecording() {
+            if (!isRecording || !mediaRecorder) {
+                return;
+            }
+            
+            if (mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            
+            isRecording = false;
+            
+            // Update UI
+            document.getElementById('startRecordingBtn').disabled = false;
+            document.getElementById('stopRecordingBtn').disabled = true;
+            setVoiceStatus('Idle');
+            console.log('[VOICE_DEBUG] Recording stopped, UI reset');
+            
+            // Remove "Recording..." hint
+            const display = document.getElementById('transcriptionDisplay');
+            const items = display.querySelectorAll('.transcription-item');
+            if (items.length > 0 && items[items.length - 1].querySelector('.transcription-text').textContent === 'Recording...') {
+                items[items.length - 1].remove();
+            }
+            
+            // If no items, show empty hint
+            if (display.querySelectorAll('.transcription-item').length === 0) {
+                display.innerHTML = '<div class="transcription-empty">Click "Start Recording" to begin voice input</div>';
+            }
+        }
+        
+        // Add transcription item (full text at once)
+        function addTranscriptionItem(time, lang, text, isSystem = false) {
+            const display = document.getElementById('transcriptionDisplay');
+            
+            // Remove empty hint
+            const empty = display.querySelector('.transcription-empty');
+            if (empty) {
+                empty.remove();
+            }
+            
+            // Create item
+            const item = document.createElement('div');
+            item.className = 'transcription-item';
+            if (isSystem) {
+                item.style.background = '#fff3cd';
+                item.style.borderLeftColor = '#ffc107';
+            }
+            
+            item.innerHTML = `
+                <div class="transcription-header">
+                    <span class="transcription-time">${time}</span>
+                    <span class="transcription-lang">${lang}</span>
+                </div>
+                <div class="transcription-text">${text}</div>
+            `;
+            
+            display.appendChild(item);
+            display.scrollTop = display.scrollHeight;
+        }
+        
+        // Add transcription item and render text in a simple "streaming" / typewriter style
+        function addStreamingTranscription(time, lang, text) {
+            const display = document.getElementById('transcriptionDisplay');
+            
+            // Remove empty hint
+            const empty = display.querySelector('.transcription-empty');
+            if (empty) {
+                empty.remove();
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'transcription-item';
+            
+            item.innerHTML = `
+                <div class="transcription-header">
+                    <span class="transcription-time">${time}</span>
+                    <span class="transcription-lang">${lang}</span>
+                </div>
+                <div class="transcription-text"></div>
+            `;
+            
+            const textEl = item.querySelector('.transcription-text');
+            display.appendChild(item);
+            display.scrollTop = display.scrollHeight;
+            
+            // Typewriter effect for better perceived responsiveness
+            let idx = 0;
+            const step = () => {
+                if (idx >= text.length) return;
+                const chunk = text.slice(idx, idx + 3); // a few chars per frame
+                textEl.textContent += chunk;
+                idx += chunk.length;
+                display.scrollTop = display.scrollHeight;
+                // Schedule next frame
+                setTimeout(step, 30);
+            };
+            step();
+        }
+        
+        // WebSocket: receive transcription result
+        socket.on('transcription', (data) => {
+            console.log('[VOICE_DEBUG] transcription event received:', data);
+            const text = data.text || '';
+            const lang = data.language || 'en';
+            setVoiceStatus('Transcription received (' + text.length + ' chars)');
+            const timestamp = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: true 
+            });
+            
+            // Append transcription to display with a simple streaming effect
+            addStreamingTranscription(timestamp, lang, text);
+            
+            // Fill transcription into query box
+            const questionInput = document.getElementById('questionInput');
+            if (questionInput.value.trim()) {
+                questionInput.value += '\n' + text;
+            } else {
+                questionInput.value = text;
+            }
+            
+            // Stop recording
+            stopVoiceRecording();
+        });
+        
+        // WebSocket: recording status
+        socket.on('recording_started', (data) => {
+            console.log('[VOICE_DEBUG] Server: recording_started event:', data);
+            setVoiceStatus('Server: recording started');
+        });
+        
+        socket.on('recording_stopped', (data) => {
+            console.log('[VOICE_DEBUG] Server: recording_stopped event:', data);
+            setVoiceStatus('Server: recording stopped');
+        });
+        
+        // WebSocket: error
+        socket.on('error', (data) => {
+            console.error('[VOICE_DEBUG] Server error event:', data);
+            setVoiceStatus('Error: ' + (data.message || 'Unknown error'));
+            alert('Voice processing failed: ' + (data.message || 'Unknown error'));
+            stopVoiceRecording();
+        });
+        
+        // Rebuild index: rescan all files in excel_files directory
+        function buildIndex() {
+            if (!confirm('Are you sure you want to rebuild the index?\n\nAll Excel files in the excel_files directory will be rescanned and re-indexed.\n\nThis may take a while.')) {
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Rebuilding...';
+            
+            fetch('/api/build_index', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Index rebuild failed');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message || 'Index rebuild completed');
+                    refreshFileList(); // Refresh file list
+                } else {
+                    alert('Rebuild index failed: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                console.error('Rebuild index failed:', err);
+                alert('Rebuild index failed: ' + (err.message || 'Unknown error') + '\n\nPlease check logs/excel_agent.log for details.');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            });
+        }
+
+        // Refresh indexed file list
+        function refreshFileList() {
+            fetch('/api/files')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('fileList');
+                    list.innerHTML = '';
+
+                    const files = data.files || [];
+                    if (!files.length) {
+                        list.innerHTML = '<div class="file-list-empty">No files yet. Please upload an Excel file.</div>';
+                        return;
+                    }
+
+                    files.forEach(f => {
+                        const item = document.createElement('div');
+                        item.className = 'file-item';
+
+                        const name = document.createElement('div');
+                        name.className = 'file-item-name';
+                        name.textContent = f.file_key;
+
+                        const summary = document.createElement('div');
+                        summary.className = 'file-item-summary';
+                        summary.textContent = f.summary || '(no summary)';
+
+                        item.appendChild(name);
+                        item.appendChild(summary);
+                        list.appendChild(item);
+                    });
+                })
+                .catch(err => {
+                    console.error('Failed to fetch file list:', err);
+                    const list = document.getElementById('fileList');
+                    list.innerHTML = '<div class="file-list-empty">Failed to load file list</div>';
+                });
+        }
+
+        // Handle file upload
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Show upload & processing status
+            const uploadLabelText = document.getElementById('uploadLabelText');
+            const uploadStatus = document.getElementById('uploadStatus');
+            const originalText = uploadLabelText?.textContent || '⬆️ Click or drop to upload Excel file';
+
+            if (uploadLabelText) {
+                uploadLabelText.textContent = '📤 Uploading Excel file...';
+            }
+            if (uploadStatus) {
+                uploadStatus.textContent = `File "${file.name}" is uploading...`;
+                uploadStatus.classList.remove('processing');
+                uploadStatus.classList.add('uploading');
+            }
+            // Disable input to prevent multiple triggers
+            e.target.disabled = true;
+            
+            fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => {
+                    console.log('Upload response status:', response.status, response.statusText);
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            console.error('Upload failed response:', text);
+                            throw new Error(`HTTP ${response.status}: ${text}`);
+                        });
+                    }
+                    // Update status to processing
+                    if (uploadLabelText) {
+                        uploadLabelText.textContent = '⚙️ Uploaded. Preprocessing & building index...';
+                    }
+                    if (uploadStatus) {
+                        uploadStatus.textContent = `File "${file.name}" uploaded. Preprocessing headers and updating knowledge base index...`;
+                        uploadStatus.classList.remove('uploading');
+                        uploadStatus.classList.add('processing');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Upload & processing result:', data);
+                    
+                    // Show different messages based on status
+                    let message = data.message || 'File processing completed';
+                    let alertType = 'info';
+                    
+                    if (data.status === 'success') {
+                        alertType = 'success';
+                        message = `✅ ${message}`;
+                    } else if (data.status === 'warning') {
+                        alertType = 'warning';
+                        message = `⚠️ ${message}`;
+                    } else if (data.status === 'info') {
+                        message = `ℹ️ ${message}`;
+                    } else if (data.status === 'error') {
+                        alertType = 'error';
+                        message = `❌ ${message}`;
+                    }
+                    
+                    alert(message);
+                    refreshFileList(); // Refresh file list
+                })
+                .catch(err => {
+                    console.error('File upload failed:', err);
+                    alert('File upload failed: ' + err.message);
+                })
+                .finally(() => {
+                    // Restore upload label text
+                    if (uploadLabelText) {
+                        uploadLabelText.textContent = originalText;
+                    }
+                    if (uploadStatus) {
+                        uploadStatus.textContent = 'No active upload';
+                        uploadStatus.classList.remove('uploading');
+                        uploadStatus.classList.remove('processing');
+                    }
+                    // Re-enable input and clear value so same file can trigger change again
+                    e.target.disabled = false;
+                    e.target.value = '';
+                });
+        });
+        
+        // Send on Enter key
+        document.getElementById('questionInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendQuestion();
+            }
+        });
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            // Clear previous results and charts
+            clearResults();
+            // Refresh file list
+            refreshFileList();
+        });
+    </script>
+</body>
+</html>
+
