@@ -1007,7 +1007,8 @@
                     const title = currentLanguage === 'zh' ? '分析总结' : 'Analysis summary';
                     addResultItem('result', title);
                 } else if (content_type === 'chart') {
-                    addResultItem('chart', '📊 Charts');
+                    const title = currentLanguage === 'zh' ? '📊 图表' : '📊 Charts';
+                    addResultItem('chart', title);
                 }
             }
             
@@ -1104,14 +1105,27 @@
                 let summaryText = rawText;
                 let traceText = '';
                 
-                // NOTE: backend uses Chinese markers in trace string; keep them for detection only
+                // Detect trace report in both Chinese and English
+                let traceStartIndex = -1;
                 if (rawText.includes('本次分析使用了') && rawText.includes('工作表:')) {
-                    // Split summary text and traceability report
-                    const traceStartIndex = rawText.indexOf('本次分析使用了');
+                    // Chinese trace report
+                    traceStartIndex = rawText.indexOf('本次分析使用了');
+                } else if (rawText.includes('This analysis used') && rawText.includes('Sheet:')) {
+                    // English trace report
+                    traceStartIndex = rawText.indexOf('This analysis used');
+                } else if (rawText.includes('本次分析未使用任何数据列')) {
+                    // Chinese: no columns used
+                    traceStartIndex = rawText.indexOf('本次分析未使用任何数据列');
+                } else if (rawText.includes('This analysis did not use any data columns')) {
+                    // English: no columns used
+                    traceStartIndex = rawText.indexOf('This analysis did not use any data columns');
+                }
+                
+                if (traceStartIndex >= 0) {
                     if (traceStartIndex > 0) {
                         summaryText = rawText.substring(0, traceStartIndex).trim();
                         traceText = rawText.substring(traceStartIndex).trim();
-                    } else if (traceStartIndex === 0) {
+                    } else {
                         summaryText = '';
                         traceText = rawText.trim();
                     }
@@ -1141,7 +1155,8 @@
                         traceDiv.className = 'trace-info';
                         contentDiv.appendChild(traceDiv);
                     }
-                    traceDiv.innerHTML = `<h4>📋 Data traceability</h4><div>${escapeHtml(traceText).replace(/\n/g, '<br>')}</div>`;
+                    const traceTitle = currentLanguage === 'zh' ? '📋 数据追溯' : '📋 Data traceability';
+                    traceDiv.innerHTML = `<h4>${traceTitle}</h4><div>${escapeHtml(traceText).replace(/\n/g, '<br>')}</div>`;
                 }
             } else {
                 const current = contentDiv.innerHTML || '';

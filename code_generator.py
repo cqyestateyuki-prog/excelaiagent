@@ -185,14 +185,16 @@ Output format (JSON):
                 if analysis_plan:
                     full_prompt += f"分析计划: {analysis_plan.get('analysis_plan', '')}\n\n"
                 # 添加语言指示
-                full_prompt += "**重要**：用户使用中文提问，请生成代码中的注释和 print 输出使用中文。\n\n"
+                full_prompt += "**重要**：用户使用中文提问，请生成代码中的注释和 print 输出使用中文。\n"
+                full_prompt += "**图表语言要求**：如果生成图表，图表的 title、xaxis_title、yaxis_title 等所有标签必须使用中文。\n\n"
             else:
                 full_prompt += f"\n\nUser question: {question}\n\n"
                 full_prompt += f"Data file path: {processed_path}\n\n"
                 if analysis_plan:
                     full_prompt += f"Analysis plan: {analysis_plan.get('analysis_plan', '')}\n\n"
                 # 添加语言指示
-                full_prompt += "**Important**: The user is asking in English, please generate code with comments and print outputs in English.\n\n"
+                full_prompt += "**Important**: The user is asking in English, please generate code with comments and print outputs in English.\n"
+                full_prompt += "**Chart Language Requirement**: If generating charts, all chart labels including title, xaxis_title, yaxis_title must be in English.\n\n"
             
             # Excel 数据处理规则（保持中文，因为这是技术规则，LLM 能理解）
             full_prompt += """
@@ -278,13 +280,15 @@ Output format (JSON):
       * 占比分析 → 饼图（px.pie）
       * 排名分析 → 水平柱状图（px.bar, orientation='h'）
       * 时间序列 → 折线图或柱状图
-    - 图表标签和标题语言要求：
-      * **根据用户问题的语言和数据列名的语言自动适配**
-      * 如果用户问题使用中文，图表标签和标题使用中文
-      * 如果用户问题使用英文，图表标签和标题使用英文
-      * 如果数据列名是英文，图表标签应使用英文列名
-      * 如果数据列名是中文，图表标签应使用中文列名
-      * **不要强制使用某种语言，要根据实际情况选择合适的语言**
+    - 图表标签和标题语言要求（**必须严格遵守**）：
+      * **根据用户问题的语言自动适配图表标签和标题的语言**
+      * **如果用户问题使用中文，图表的所有标签（title、xaxis_title、yaxis_title、legend等）必须使用中文**
+      * **如果用户问题使用英文，图表的所有标签（title、xaxis_title、yaxis_title、legend等）必须使用英文**
+      * 数据列名保持原样（如果列名是中文就用中文，如果是英文就用英文）
+      * 但图表的标题和轴标签必须与用户问题的语言一致
+      * 示例：
+        - 中文问题："分析销售额趋势" → 图表 title='销售额趋势图', xaxis_title='日期', yaxis_title='销售额'
+        - 英文问题："Analyze sales trend" → 图表 title='Sales Trend', xaxis_title='Date', yaxis_title='Sales'
     - **重要**：不要使用 `fig.show()`，因为这在非交互式环境中会阻塞
     - **重要**：HTML 文件必须保存到 'charts' 目录，文件名使用有意义的名称（基于问题或数据内容，可以使用英文或中文）
     - 使用 `fig.write_html('charts/图表文件名.html')` 保存图表，然后打印文件路径

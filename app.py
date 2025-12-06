@@ -462,7 +462,7 @@ def analyze_excel_stream(question: str, chat_id: Optional[str] = None, user_api_
         # 阶段5: 数据追溯
         schema = file_metadata.get('schema', {})
         trace_result = data_tracer.trace_data_usage(code, execution_output, schema)
-        trace_report = data_tracer.format_trace_report(trace_result)
+        trace_report = data_tracer.format_trace_report(trace_result, language=language)
         
         # 阶段6: 生成总结
         yield to_ret_s_suc(

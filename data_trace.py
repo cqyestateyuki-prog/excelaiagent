@@ -145,29 +145,42 @@ class DataTracer:
             'total_columns_used': len(used_columns)
         }
     
-    def format_trace_report(self, trace_result: Dict) -> str:
+    def format_trace_report(self, trace_result: Dict, language: str = 'zh') -> str:
         """
         格式化追溯报告
         
         Args:
             trace_result: 追溯结果
+            language: 语言代码，'zh' 表示中文，'en' 表示英文（用于提示文字）
             
         Returns:
-            格式化的报告字符串
+            格式化的报告字符串（提示文字根据 language，列名保持原样）
         """
         used_columns = trace_result.get('used_columns', [])
         column_info = trace_result.get('column_info', {})
         
-        if not used_columns:
-            return "本次分析未使用任何数据列。"
-        
-        report = f"本次分析使用了 {len(used_columns)} 个数据列：\n\n"
-        
-        for col in used_columns:
-            info = column_info.get(col, {})
-            sheet = info.get('sheet', '未知')
-            dtype = info.get('dtype', '未知')
-            report += f"- {col} (工作表: {sheet}, 类型: {dtype})\n"
+        if language == 'zh':
+            if not used_columns:
+                return "本次分析未使用任何数据列。"
+            
+            report = f"本次分析使用了 {len(used_columns)} 个数据列：\n\n"
+            
+            for col in used_columns:
+                info = column_info.get(col, {})
+                sheet = info.get('sheet', '未知')
+                dtype = info.get('dtype', '未知')
+                report += f"- {col} (工作表: {sheet}, 类型: {dtype})\n"
+        else:  # English
+            if not used_columns:
+                return "This analysis did not use any data columns."
+            
+            report = f"This analysis used {len(used_columns)} data column(s):\n\n"
+            
+            for col in used_columns:
+                info = column_info.get(col, {})
+                sheet = info.get('sheet', 'Unknown')
+                dtype = info.get('dtype', 'Unknown')
+                report += f"- {col} (Sheet: {sheet}, Type: {dtype})\n"
         
         return report
 
