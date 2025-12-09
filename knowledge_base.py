@@ -205,31 +205,31 @@ class KnowledgeBase:
     
     def generate_summary(self, file_path: str, schema: Dict) -> str:
         """
-        使用 LLM 生成文件内容摘要
+        使用 LLM 生成文件内容摘要（英文）
         
         Args:
             file_path: Excel 文件路径
             schema: 文件结构信息
             
         Returns:
-            文件内容摘要
+            文件内容摘要（英文）
         """
         try:
-            # 构建 prompt
+            # 构建 prompt（英文）
             schema_str = json.dumps(schema, ensure_ascii=False, indent=2)
-            prompt = f"""请分析以下 Excel 文件的结构信息，生成一个简洁的内容摘要（50-100字），说明这个文件的主要用途、包含的数据类型和关键字段。
+            prompt = f"""Please analyze the following Excel file structure information and generate a concise content summary (50-100 words) describing the main purpose of this file, the data types it contains, and key fields.
 
-文件路径: {file_path}
+File path: {file_path}
 
-结构信息:
+Structure information:
 {schema_str}
 
-请只输出摘要内容，不要包含其他解释。"""
+Please output only the summary content in English, without any additional explanations."""
             
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "你是一个专业的数据分析师，擅长理解 Excel 文件的结构和内容。"},
+                    {"role": "system", "content": "You are a professional data analyst skilled in understanding Excel file structures and content. Always respond in English."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3
@@ -239,7 +239,7 @@ class KnowledgeBase:
             return summary
         except Exception as e:
             logger.error(f"生成摘要时出错: {e}", exc_info=True)
-            return f"Excel 文件，包含 {len(schema)} 个工作表"
+            return f"Excel file containing {len(schema)} worksheet(s)"
     
     def build_index(self, force_rebuild: bool = False):
         """

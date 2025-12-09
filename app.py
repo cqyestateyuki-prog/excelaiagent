@@ -333,7 +333,7 @@ def analyze_excel_stream(question: str, chat_id: Optional[str] = None, user_api_
                 response_id=response_id
             )
             yield to_ret_s_suc(
-                answer="代码生成失败，无法执行。",
+                answer="Code generation failed, unable to execute.",
                 finished=1,
                 content_type='text',
                 content_status='end',
@@ -346,7 +346,7 @@ def analyze_excel_stream(question: str, chat_id: Optional[str] = None, user_api_
         processed_path = file_metadata.get('processed_path', '')
         if not processed_path:
             yield to_ret_s_suc(
-                answer="错误：无法获取处理后的文件路径",
+                answer="Error: Unable to get processed file path",
                 finished=1,
                 content_type='text',
                 content_status='end',
@@ -359,7 +359,7 @@ def analyze_excel_stream(question: str, chat_id: Optional[str] = None, user_api_
         from pathlib import Path
         file_path_obj = Path(processed_path)
         if not file_path_obj.exists():
-            error_msg = f"错误：处理后的文件不存在: {processed_path}\n绝对路径: {file_path_obj.resolve()}"
+            error_msg = f"Error: Processed file does not exist: {processed_path}\nAbsolute path: {file_path_obj.resolve()}"
             logger.error(error_msg)
             yield to_ret_s_suc(
                 answer=error_msg,
@@ -552,7 +552,7 @@ Please reply in English, 200-300 words."""
     except Exception as e:
         logger.error(f"分析过程中出错: {e}", exc_info=True)
         yield to_ret_s_suc(
-            answer=f"分析过程中出错: {str(e)}",
+            answer=f"Error during analysis: {str(e)}",
             finished=1,
             content_type='text',
             content_status='end',
@@ -575,7 +575,7 @@ def analyze():
         user_api_key = data.get('api_key', None)  # 用户提供的 API key
     
     if not question:
-        return jsonify({'error': '问题不能为空'}), 400
+        return jsonify({'error': 'Question cannot be empty'}), 400
     
     return Response(
         analyze_excel_stream(question, chat_id, user_api_key=user_api_key),
@@ -606,13 +606,13 @@ def build_index():
         
         return jsonify({
             'status': 'success', 
-            'message': f'索引重建完成！\n\n已重新扫描 excel_files 目录，共索引 {new_file_count} 个文件。'
+            'message': f'Index rebuild completed!\n\nRescanned excel_files directory, indexed {new_file_count} file(s).'
         })
     except Exception as e:
         logger.error(f"重建索引时出错: {e}", exc_info=True)
         return jsonify({
             'status': 'error', 
-            'message': f'重建索引失败: {str(e)}\n\n请查看日志文件 logs/excel_agent.log 获取详细错误信息。'
+            'message': f'Index rebuild failed: {str(e)}\n\nPlease check the log file logs/excel_agent.log for detailed error information.'
         }), 500
 
 
@@ -621,11 +621,11 @@ def upload_file():
     """上传 Excel 文件并更新知识库索引"""
     try:
         if 'file' not in request.files:
-            return jsonify({'status': 'error', 'message': '未找到文件字段 file'}), 400
+            return jsonify({'status': 'error', 'message': 'File field not found'}), 400
 
         file = request.files['file']
         if file.filename == '':
-            return jsonify({'status': 'error', 'message': '文件名为空'}), 400
+            return jsonify({'status': 'error', 'message': 'Filename is empty'}), 400
 
         # 处理文件名：保留原始文件名，但进行安全处理
         original_filename = file.filename
@@ -667,7 +667,7 @@ def upload_file():
             logger.info(f"文件已存在于知识库: {file_key}")
             return jsonify({
                 'status': 'info',
-                'message': f'文件已存在于知识库中，无需重新索引',
+                'message': f'File already exists in knowledge base, no need to re-upload',
                 'filename': safe_filename,
                 'saved_path': str(save_path),
                 'indexed_files': len(kb.metadata) if kb.metadata else 0
@@ -685,7 +685,7 @@ def upload_file():
             if file_indexed:
                 return jsonify({
                     'status': 'success',
-                    'message': f'文件上传并索引完成！\n\n文件名: {safe_filename}\n知识库中共有 {file_count} 个已索引文件',
+                    'message': f'File uploaded and indexed successfully!\n\nFilename: {safe_filename}\nTotal {file_count} file(s) indexed in knowledge base',
                     'filename': safe_filename,
                     'saved_path': str(save_path),
                     'indexed_files': file_count
@@ -694,7 +694,7 @@ def upload_file():
                 # 文件上传了但索引失败
                 return jsonify({
                     'status': 'warning',
-                    'message': f'文件上传成功，但索引处理失败。\n\n文件名: {safe_filename}\n\n可能原因：\n1. 文件格式不支持\n2. 文件损坏或无法读取\n3. 预处理过程出错\n\n请检查文件或联系管理员。',
+                    'message': f'File uploaded successfully, but indexing failed.\n\nFilename: {safe_filename}\n\nPossible reasons:\n1. Unsupported file format\n2. File is corrupted or unreadable\n3. Preprocessing error\n\nPlease check the file or contact administrator.',
                     'filename': safe_filename,
                     'saved_path': str(save_path),
                     'indexed_files': file_count
@@ -703,7 +703,7 @@ def upload_file():
             logger.error(f"构建索引时出错: {e}", exc_info=True)
             return jsonify({
                 'status': 'error',
-                'message': f'文件上传成功，但索引构建时发生错误: {str(e)}\n\n请尝试点击"重建索引"按钮手动构建索引。',
+                'message': f'File uploaded successfully, but an error occurred during index building: {str(e)}\n\nPlease try clicking the "Rebuild Index" button to manually build the index.',
                 'filename': safe_filename,
                 'saved_path': str(save_path)
             }), 200
@@ -729,17 +729,17 @@ def serve_chart(filename):
             resolved_charts_dir = charts_dir.resolve()
             if not str(resolved_chart).startswith(str(resolved_charts_dir)):
                 logger.warning(f"非法路径访问尝试: {filename}")
-                return jsonify({'error': '无效的文件路径'}), 403
+                return jsonify({'error': 'Invalid file path'}), 403
         except Exception as e:
             logger.error(f"路径解析错误: {e}")
-            return jsonify({'error': '路径解析失败'}), 400
+            return jsonify({'error': 'Path resolution failed'}), 400
         
         if chart_path.exists() and chart_path.suffix == '.html':
             logger.info(f"提供图表文件: {decoded_filename}")
             return send_from_directory(str(charts_dir), decoded_filename)
         else:
             logger.warning(f"图表文件不存在: {decoded_filename}, 路径: {chart_path}")
-            return jsonify({'error': '图表文件不存在'}), 404
+            return jsonify({'error': 'Chart file does not exist'}), 404
     except Exception as e:
         logger.error(f"提供图表文件时出错: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
@@ -760,13 +760,13 @@ def clear_results():
                     logger.warning(f"删除图表文件失败 {f}: {e}")
         return jsonify({
             'status': 'success',
-            'message': f'已清空分析结果相关的图表文件，共删除 {len(removed)} 个。'
+            'message': f'Cleared analysis result chart files, deleted {len(removed)} file(s).'
         })
     except Exception as e:
         logger.error(f"清空结果临时文件时出错: {e}", exc_info=True)
         return jsonify({
             'status': 'error',
-            'message': f'清空结果时删除临时文件失败: {str(e)}'
+            'message': f'Failed to delete temporary files when clearing results: {str(e)}'
         }), 500
 
 @app.route('/api/files', methods=['GET'])
@@ -804,7 +804,7 @@ def handle_voice_input(data):
         
         if not audio_data:
             logger.error("音频数据为空")
-            emit('error', {'message': '音频数据为空', 'session_id': session_id})
+            emit('error', {'message': 'Audio data is empty', 'session_id': session_id})
             return
         
         # 在后台线程中处理语音
@@ -833,7 +833,7 @@ def handle_text_input(data):
     try:
         question = data.get('question', '')
         if not question:
-            emit('error', {'message': '问题不能为空'})
+            emit('error', {'message': 'Question cannot be empty'})
             return
         
         # 在后台线程中执行分析

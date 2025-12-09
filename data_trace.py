@@ -1,19 +1,106 @@
-"""
-数据追溯模块：分析代码识别使用的数据列
-"""
-import re
+"""数据追溯模块：分析生成的代码使用了哪些数据列"""
 import ast
+import re
 import logging
-from typing import List, Set, Dict
+from typing import Dict, List, Set, Optional
 
 logger = logging.getLogger(f'excel_agent.{__name__}')
 
 class DataTracer:
-    """数据追溯器"""
+    """数据追溯器：分析代码中使用的数据列"""
     
     def __init__(self):
-        """初始化数据追溯器"""
-        pass
+        self.used_columns: Set[str] = set()
+        self.column_info: Dict[str, Dict] = {}
+    
+    def trace_code(self, code: str, metadata: Dict) -> Dict:
+        """
+        追溯代码中使用的数据列
+        
+        Args:
+            code: 生成的 Python 代码
+            metadata: Excel 文件的元数据，包含列信息
+            
+        Returns:
+            追溯结果字典，包含：
+            - used_columns: 使用的列名列表
+            - column_info: 列信息字典（列名 -> {sheet, dtype}）
+            - total_columns_used: 使用的列总数
+        """
+        self.used_columns.clear()
+        self.column_info.clear()
+        
+        try:
+            tree = ast.parse(code)
+            self._visit_node(tree, metadata)
+        except SyntaxError as e:
+            logger.warning(f"代码语法错误，无法追溯: {e}")
+            return {
+                'used_columns': [],
+                'column_info': {},
+                'total_columns_used': 0
+            }
+        
+        used_columns = sorted(list(self.used_columns))
+        
+        return {
+            'used_columns': used_columns,
+            'column_info': self.column_info,
+            'total_columns_used': len(used_columns)
+        }
+    
+    def _visit_node(self, node: ast.AST, metadata: Dict):
+        """递归访问 AST 节点"""
+        if isinstance(node, ast.Name):
+            self._check_column_name(node.id, metadata)
+        elif isinstance(node, ast.Attribute):
+            # 处理 df.column_name 或 df['column_name'] 的情况
+            if isinstance(node.value, ast.Name):
+                var_name = node.value.id
+                if var_name in ['df', 'data', 'df_merged']:
+                    attr_name = node.attr
+                    self._check_column_name(attr_name, metadata)
+        elif isinstance(node, ast.Subscript):
+            # 处理 df['column_name'] 的情况
+            if isinstance(node.value, ast.Name):
+                var_name = node.value.id
+                if var_name in ['df', 'data', 'df_merged']:
+                    if isinstance(node.slice, ast.Constant):
+                        col_name = node.slice.value
+                        if isinstance(col_name, str):
+                            self._check_column_name(col_name, metadata)
+                    elif isinstance(node.slice, ast.Index):  # Python < 3.9
+                        if isinstance(node.slice.value, ast.Constant):
+                            col_name = node.slice.value.value
+                            if isinstance(col_name, str):
+                                self._check_column_name(col_name, metadata)
+                    elif isinstance(node.slice, ast.Str):  # Python < 3.8
+                        col_name = node.slice.s
+                        if isinstance(col_name, str):
+                            self._check_column_name(col_name, metadata)
+        
+        # 递归访问子节点
+        for child in ast.iter_child_nodes(node):
+            self._visit_node(child, metadata)
+    
+    def _check_column_name(self, name: str, metadata: Dict):
+        """检查名称是否是数据列名"""
+        # 从 metadata 中查找列信息
+        sheets = metadata.get('sheets', {})
+        
+        for sheet_name, sheet_data in sheets.items():
+            columns = sheet_data.get('columns', [])
+            for col_info in columns:
+                col_name = col_info.get('name', '')
+                if col_name == name:
+                    self.used_columns.add(name)
+                    # 保存列信息
+                    if name not in self.column_info:
+                        self.column_info[name] = {
+                            'sheet': sheet_name,
+                            'dtype': col_info.get('dtype', '未知')
+                        }
+                    break
     
     def extract_columns_from_code(self, code: str, schema: Dict) -> Set[str]:
         """
@@ -194,20 +281,24 @@ if __name__ == "__main__":
     test_code = """
 import pandas as pd
 df = pd.read_excel('test.xlsx')
-result = df[df['地区'] == '北京']['销售额'].sum()
+result = df['销售额'].sum()
 print(result)
 """
     
-    test_schema = {
-        'Sheet1': {
-            'columns': ['地区', '销售额', '日期'],
-            'dtypes': {'地区': 'object', '销售额': 'float64', '日期': 'datetime64[ns]'}
+    test_metadata = {
+        'sheets': {
+            'Sheet1': {
+                'columns': [
+                    {'name': '销售额', 'dtype': 'float64'},
+                    {'name': '日期', 'dtype': 'datetime64'},
+                    {'name': '产品', 'dtype': 'object'}
+                ]
+            }
         }
     }
     
-    trace_result = tracer.trace_data_usage(test_code, "", test_schema)
-    print("追溯结果:", trace_result)
+    result = tracer.trace_code(test_code, test_metadata)
+    print("追溯结果:", result)
     
-    report = tracer.format_trace_report(trace_result)
-    print("\n追溯报告:\n", report)
-
+    report = tracer.format_trace_report(result, language='zh')
+    print("\n报告:\n", report)
